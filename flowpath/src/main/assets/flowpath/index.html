@@ -114,19 +114,17 @@ function fit() {
 }
 addEventListener('resize', fit); fit();
 
-// ---------- transform lapangan ----------
-// Layar horizontal = y  (kiri -72, kanan +72)
-// Layar vertikal   = x  (bawah -72, atas +72)
-// Origin (0,0) di tengah. view.cx = pusat x (vertikal), view.cy = pusat y (horizontal).
-let view = { cx: 0, cy: 0, span: FIELD };
+// ---------- transform lapangan (sistem koordinat RoadRunner) ----------
+// Origin (0,0) = tengah lapangan. +x ke kanan, +y ke atas, -72..72 in.
+// Heading 0 = menghadap +x (kanan), positif = berlawanan jarum jam.
+let view = { cx: 0, cy: 0, span: FIELD };             // pusat pandangan (inci)
 function sc() { return cv.width / view.span; }
-const SX = (x, y) => (y - (view.cy - view.span / 2)) * sc();
-const SY = (x, y) => cv.height - (x - (view.cx - view.span / 2)) * sc();
+const SX = (x, y) => (x - (view.cx - view.span / 2)) * sc();
+const SY = (x, y) => cv.height - (y - (view.cy - view.span / 2)) * sc();
 function toField(px, py) {
   const r = cv.getBoundingClientRect(), k = cv.width / r.width, s = sc();
-  const sxp = (px - r.left) * k, syp = (py - r.top) * k;
-  return [ (cv.height - syp) / s + (view.cx - view.span / 2),   // x
-           sxp / s + (view.cy - view.span / 2) ];               // y
+  return [ (px - r.left) * k / s + (view.cx - view.span / 2),
+           (cv.height - (py - r.top) * k) / s + (view.cy - view.span / 2) ];
 }
 
 // ---------- gambar ----------
@@ -136,19 +134,19 @@ function drawField() {
   g.lineWidth = 1;
   for (let i = -H; i <= H; i += 24) {                   // tile 24 in, dari -72 sampai 72
     g.strokeStyle = i === 0 ? '#34405a' : '#1c2333';
-    g.beginPath(); g.moveTo(SX(i, -H), SY(i, -H)); g.lineTo(SX(i, H), SY(i, H)); g.stroke();   // garis x = i
-    g.beginPath(); g.moveTo(SX(-H, i), SY(-H, i)); g.lineTo(SX(H, i), SY(H, i)); g.stroke();   // garis y = i
+    g.beginPath(); g.moveTo(SX(i, -H), SY(i, -H)); g.lineTo(SX(i, H), SY(i, H)); g.stroke();   // x = i
+    g.beginPath(); g.moveTo(SX(-H, i), SY(-H, i)); g.lineTo(SX(H, i), SY(H, i)); g.stroke();   // y = i
   }
   g.strokeStyle = '#4a5878'; g.lineWidth = 2;
-  g.strokeRect(SX(0, -H), SY(H, 0), FIELD * sc(), FIELD * sc());
+  g.strokeRect(SX(-H, H), SY(-H, H), FIELD * sc(), FIELD * sc());
   g.fillStyle = '#5b6882'; g.font = (11 * d) + 'px system-ui';
   for (let i = -H; i <= H; i += 24) {
-    if (i > -H) g.fillText('y ' + i, SX(-H, i) + 3, SY(-H, i) - 4);     // label y di tepi bawah
-    if (i < H) g.fillText('x ' + i, SX(i, -H) + 3, SY(i, -H) - 3);      // label x di tepi kiri
+    if (i > -H) g.fillText(i, SX(i, -H) + 3, SY(i, -H) - 4);      // label x di tepi bawah
+    if (i < H) g.fillText(i, SX(-H, i) + 3, SY(-H, i) - 3);       // label y di tepi kiri
   }
   g.fillStyle = '#8b93a5'; g.font = (13 * d) + 'px system-ui';
-  g.fillText('+x ↑', SX(H, 0) + 8, SY(H, 0) + 18 * d);
-  g.fillText('+y →', SX(0, H) - 46 * d, SY(0, H) - 8 * d);
+  g.fillText('+x →', SX(H, 0) - 46 * d, SY(H, 0) - 8 * d);
+  g.fillText('+y ↑', SX(0, H) + 8 * d, SY(0, H) + 18 * d);
 }
 
 function drawPath() {
@@ -182,7 +180,7 @@ function drawRobot() {
   const rx = SX(x, y), ry = SY(x, y);
   g.save();
   g.translate(rx, ry);
-  g.rotate(h - Math.PI / 2);                            // heading 0 = menghadap +x = ke ATAS layar
+  g.rotate(-h);                                         // canvas y terbalik -> putar -h (CCW positif)
   g.fillStyle = 'rgba(77,163,255,.25)'; g.strokeStyle = '#4da3ff'; g.lineWidth = 2;
   g.fillRect(-size / 2, -size / 2, size, size); g.strokeRect(-size / 2, -size / 2, size, size);
   g.strokeStyle = '#ffb74d'; g.lineWidth = 3;           // panah depan robot
@@ -200,7 +198,7 @@ function drawRobot() {
     g.strokeStyle = '#d17bff'; g.lineWidth = 2;
     const L = size * 0.9;
     g.beginPath(); g.moveTo(rx, ry);
-    g.lineTo(rx + Math.sin(S.th) * L, ry - Math.cos(S.th) * L); g.stroke();
+    g.lineTo(rx + Math.cos(S.th) * L, ry - Math.sin(S.th) * L); g.stroke();
   }
   if ($('oVel').checked) {                               // vektor kecepatan (1 s ke depan)
     g.strokeStyle = '#3ddc84'; g.lineWidth = 2;
