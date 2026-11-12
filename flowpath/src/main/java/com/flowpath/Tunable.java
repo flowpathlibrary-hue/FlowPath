@@ -1,4 +1,4 @@
-package com.flowpath.dash;
+package com.flowpath;
 
 import java.lang.annotation.ElementType;
 import java.lang.annotation.Retention;
