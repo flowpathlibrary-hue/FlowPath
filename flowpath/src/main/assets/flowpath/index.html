@@ -122,11 +122,11 @@ function fit() {
 addEventListener('resize', fit); fit();
 
 // ---------- setelan (disimpan di browser) ----------
-const DEF = { lo: -72, swap: false, flipH: false, flipV: false, theme: 'dark', accent: '#4da3ff', trailLen: 1500,
+const DEF = { lo: 0, swap: false, flipH: false, flipV: false, theme: 'dark', accent: '#4da3ff', trailLen: 1500,
   side: 'right', hide: [], order: [], graphs: [{ sig: ['cross'], win: 10, min: '', max: '' }] };
 let C = Object.assign({}, DEF);
-try { Object.assign(C, JSON.parse(localStorage.getItem('fpcfg') || '{}')); } catch (_) {}
-const save = () => { try { localStorage.setItem('fpcfg', JSON.stringify(C)); } catch (_) {} };
+try { Object.assign(C, JSON.parse(localStorage.getItem('fpcfg2') || '{}')); } catch (_) {}
+const save = () => { try { localStorage.setItem('fpcfg2', JSON.stringify(C)); } catch (_) {} };
 
 // ---------- transform lapangan ----------
 // Koordinat robot -> (u,v) layar: swap = tukar x/y, flipH/flipV = balik arah, lo = sudut kiri-bawah (-72 tengah / 0 pojok)
@@ -159,9 +159,12 @@ function toField(px, py) {
 }
 
 // ---------- gambar ----------
+const fieldImg = new Image(); let fieldImgOk = false;
+fieldImg.onload = () => fieldImgOk = true; fieldImg.src = '/field.png';   // opsional: assets/flowpath/field.png
 function drawField() {
   const d = window.devicePixelRatio || 1, lo = C.lo, hn = C.swap ? 'y' : 'x', vn = C.swap ? 'x' : 'y';
   g.clearRect(0, 0, cv.width, cv.height);
+  if (fieldImgOk && !C.swap && !C.flipH && !C.flipV) { const t = PU(C.lo, C.lo + FIELD); g.globalAlpha = 0.6; g.drawImage(fieldImg, t[0], t[1], FIELD * sc(), FIELD * sc()); g.globalAlpha = 1; }
   g.lineWidth = 1;
   for (let i = 0; i <= FIELD; i += 24) {
     const q = lo + i, a = PU(q, lo), b2 = PU(q, lo + FIELD), c2 = PU(lo, q), e = PU(lo + FIELD, q);
@@ -338,7 +341,7 @@ function renderSettings() {
   $('s_g').onclick = () => { C.graphs.push({ sig: ['speed'], win: 10, min: '', max: '' }); save(); buildGraphs(); applyCfg(); renderSettings(); };
   $('s_x').onclick = () => prompt('Salin konfigurasi ini:', JSON.stringify(C));
   $('s_i').onclick = () => { const t = prompt('Tempel konfigurasi:'); if (t) try { C = Object.assign({}, DEF, JSON.parse(t)); save(); location.reload(); } catch (_) {} };
-  $('s_r').onclick = () => { try { localStorage.removeItem('fpcfg'); } catch (_) {} location.reload(); };
+  $('s_r').onclick = () => { try { localStorage.removeItem('fpcfg2'); } catch (_) {} location.reload(); };
 }
 $('gear').onclick = () => $('set').classList.toggle('on');
 document.querySelectorAll('aside > .card').forEach(w => w.dataset.w = w.querySelector('h2').firstChild.textContent.trim());
