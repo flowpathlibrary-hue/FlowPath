@@ -18,9 +18,12 @@ import java.io.OutputStream;
 import java.net.ServerSocket;
 import java.net.Socket;
 import java.net.URLDecoder;
+import java.util.Collections;
 import java.util.HashMap;
+import java.util.LinkedHashMap;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.ConcurrentLinkedQueue;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 
@@ -31,7 +34,7 @@ import java.util.concurrent.Executors;
  * Flow.mecanum(...).build() starts it for you.
  */
 public final class Dash {
-    public static final int PORT = 8099;
+    public static final int PORT = 8009;
 
     private static ServerSocket server;
     private static ExecutorService pool;
@@ -43,6 +46,9 @@ public final class Dash {
     private static final Map<String, String> custom = new ConcurrentHashMap<>();
     private static volatile Object routeOwner;
     private static volatile String routeJson = "[]";
+    private static final Map<String, Runnable> actions = Collections.synchronizedMap(new LinkedHashMap<String, Runnable>());
+    private static final ConcurrentLinkedQueue<Runnable> queue = new ConcurrentLinkedQueue<>();
+    private static final ConcurrentLinkedQueue<Pose> poseQueue = new ConcurrentLinkedQueue<>();
 
     private Dash() {}
 
@@ -76,12 +82,29 @@ public final class Dash {
 
     public static void routeChanged() { routeOwner = null; }
 
+    /** Tombol di dashboard. Dijalankan di loop robot (lewat flow.update), bukan di thread web. */
+    public static void action(String name, Runnable r) { actions.put(name, r); }
+
+    /** Cari & daftarkan semua class ber-@Tunable di package ini, mis. "org.firstinspires.ftc.teamcode". */
+    public static void scan(String pkg) { Params.scanPackage(pkg); }
+
+    /** Jalankan aksi dan set-pose dari dashboard. Otomatis dipanggil di publish(). */
+    public static void poll(Flow f) {
+        Runnable r;
+        while ((r = queue.poll()) != null) {
+            try { r.run(); } catch (Exception e) { android.util.Log.e("FlowPath", "action failed", e); }
+        }
+        Pose p;
+        while ((p = poseQueue.poll()) != null) f.setPose(p);
+    }
+
     /** Show an extra value in the telemetry table. */
     public static void put(String key, Object value) { custom.put(key, String.valueOf(value)); }
 
     // ------------------------------------------------------------------ packet building
 
     public static void publish(Flow f) {
+        poll(f);
         if (!running) return;
         long now = System.nanoTime();
         if (now - lastPublishNs < 30_000_000L) return; // ~30 Hz
@@ -172,6 +195,31 @@ public final class Dash {
                     case "/api/set": {
                         Map<String, String> qs = parse(query);
                         send(out, "application/json", ("{\"ok\":" + Params.set(qs.get("name"), qs.get("value")) + "}").getBytes());
+                        break;
+                    }
+                    case "/api/actions": {
+                        StringBuilder b = new StringBuilder("{\"actions\":[");
+                        synchronized (actions) {
+                            boolean first = true;
+                            for (String k : actions.keySet()) {
+                                if (!first) b.append(',');
+                                first = false;
+                                b.append('"').append(esc(k)).append('"');
+                            }
+                        }
+                        send(out, "application/json", b.append("]}").toString().getBytes("UTF-8"));
+                        break;
+                    }
+                    case "/api/run": {
+                        Runnable r = actions.get(parse(query).get("name"));
+                        if (r != null) queue.add(r);
+                        send(out, "application/json", ("{\"ok\":" + (r != null) + "}").getBytes());
+                        break;
+                    }
+                    case "/api/pose": { // x, y (inci), h (derajat)
+                        Map<String, String> qs = parse(query);
+                        poseQueue.add(Pose.of(Double.parseDouble(qs.get("x")), Double.parseDouble(qs.get("y")), Double.parseDouble(qs.get("h"))));
+                        send(out, "application/json", "{\"ok\":true}".getBytes());
                         break;
                     }
                     case "/api/save": send(out, "application/json", ("{\"ok\":" + Params.save() + "}").getBytes()); break;

@@ -2,11 +2,14 @@ package com.flowpath.dash;
 
 import org.firstinspires.ftc.robotcore.internal.system.AppUtil;
 
+import dalvik.system.DexFile;
+
 import java.io.File;
 import java.io.FileInputStream;
 import java.io.FileOutputStream;
 import java.lang.reflect.Field;
 import java.lang.reflect.Modifier;
+import java.util.Enumeration;
 import java.util.LinkedHashMap;
 import java.util.Map;
 import java.util.Properties;
@@ -33,16 +36,43 @@ public final class Params {
         for (Field f : c.getDeclaredFields()) {
             int m = f.getModifiers();
             Class<?> ty = f.getType();
-            if (!Modifier.isPublic(m) || !Modifier.isStatic(m) || Modifier.isFinal(m)) continue;
+            if (!Modifier.isStatic(m) || Modifier.isFinal(m) || f.isSynthetic()) continue; // public / private, semua ikut
             if (ty != double.class && ty != int.class && ty != boolean.class) continue;
             String key = c.getSimpleName() + "." + f.getName();
-            if (fields.containsKey(key)) continue;
+            if (fields.containsKey(key)) { // nama class sama di file lain -> pakai nama lengkap
+                if (fields.get(key).equals(f)) continue;
+                key = c.getName().replace('$', '.') + "." + f.getName();
+                if (fields.containsKey(key)) continue;
+            }
+            f.setAccessible(true);
             fields.put(key, f);
             defaults.put(key, get(f));
             String sv = saved.getProperty(key);
             if (sv != null) set(key, sv); // saved tuning overrides code defaults
         }
         for (Class<?> n : c.getDeclaredClasses()) scan(n, saved);
+    }
+
+    /** Label grup di dashboard: "NamaFile > NamaClassDalam". */
+    private static String label(Field f) {
+        String n = f.getDeclaringClass().getName();
+        return n.substring(n.lastIndexOf('.') + 1).replace("$", " \u203a ");
+    }
+
+    /** Cari semua class ber-@Tunable di package ini (semua file di TeamCode) dan daftarkan. Best effort. */
+    public static synchronized void scanPackage(String prefix) {
+        Properties saved = readSaved();
+        try {
+            DexFile df = new DexFile(AppUtil.getInstance().getApplication().getPackageCodePath());
+            for (Enumeration<String> en = df.entries(); en.hasMoreElements(); ) {
+                String n = en.nextElement();
+                if (!n.startsWith(prefix)) continue;
+                try {
+                    Class<?> c = Class.forName(n, false, Params.class.getClassLoader()); // false = tanpa static init
+                    if (c.isAnnotationPresent(Tunable.class)) scan(c, saved);
+                } catch (Throwable ignored) {}
+            }
+        } catch (Throwable ignored) {}
     }
 
     private static String get(Field f) {
@@ -69,7 +99,7 @@ public final class Params {
             first = false;
             Class<?> t = e.getValue().getType();
             String ty = t == boolean.class ? "bool" : t == int.class ? "int" : "double";
-            sb.append("{\"k\":\"").append(e.getKey()).append("\",\"v\":").append(get(e.getValue()))
+            sb.append("{\"c\":\"").append(label(e.getValue())).append("\",\"k\":\"").append(e.getKey()).append("\",\"v\":").append(get(e.getValue()))
               .append(",\"d\":").append(defaults.get(e.getKey())).append(",\"t\":\"").append(ty).append("\"}");
         }
         return sb.append("]}").toString();

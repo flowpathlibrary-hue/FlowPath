@@ -41,13 +41,20 @@
   .p input[type=number] { width:100%; background:#0b0e14; color:var(--text); border:1px solid var(--line); border-radius:4px; padding:2px 4px; }
   .mod { color:var(--warn); }
   #plot { width:100%; height:80px; }
+  #set{position:fixed;top:47px;right:0;bottom:0;width:340px;background:var(--panel);border-left:1px solid var(--line);padding:12px;overflow:auto;display:none;z-index:9}
+  #set.on{display:block} #set h3{margin:14px 0 4px;font-size:12px;color:var(--dim);text-transform:uppercase}
+  #set label{display:flex;gap:6px;align-items:center;margin:4px 0}
+  select,input[type=number]{background:#0b0e14;color:var(--text);border:1px solid var(--line);border-radius:4px;padding:2px 4px}
+  .gcard canvas{width:100%;height:110px;aspect-ratio:auto;max-height:none}
+  .chip{display:inline-block;background:#232b3a;border-radius:10px;padding:1px 8px;margin:2px;cursor:pointer;font-size:12px}
+  body.light{--bg:#f3f5f9;--panel:#fff;--line:#d5dae5;--text:#1a2030;--dim:#667089}
 </style>
 </head>
 <body>
 <header>
   <span class="dot" id="conn"></span><h1>FlowPath</h1>
   <span class="pill" id="mode">-</span><span class="pill" id="busy">idle</span>
-  <span style="margin-left:auto;color:var(--dim)" id="hz"></span>
+  <span style="margin-left:auto;color:var(--dim)" id="hz"></span><button id="gear">⚙ Setelan</button>
 </header>
 
 <main>
@@ -59,7 +66,7 @@
       <label><input type="checkbox" id="oVel" checked> vektor kecepatan</label>
       <label><input type="checkbox" id="oFollow"> ikuti robot</label>
       <label>ukuran robot (in) <input type="number" id="rsize" value="18" min="6" max="24" style="width:52px"></label>
-      <button id="clr">Hapus jejak</button>
+      <button id="clr">Hapus jejak</button><button id="setpose">Set pose (klik)</button>
       <span id="mouse" style="margin-left:auto"></span>
     </div>
   </section>
@@ -83,10 +90,9 @@
     <div class="card">
       <h2>Power motor</h2><div class="pw" id="pw"></div>
     </div>
-    <div class="card">
-      <h2>Error cross-track (10 s)</h2><canvas id="plot"></canvas>
-    </div>
+    
     <div class="card"><h2>Telemetry</h2><table id="tel"></table></div>
+    <div class="card"><h2>Aksi</h2><div class="bar" id="acts"></div></div>
     <div class="card">
       <h2>Tuning (static variable)</h2>
       <div class="bar" style="margin-bottom:6px">
@@ -97,6 +103,7 @@
   </aside>
 </main>
 
+<div id="set"></div>
 <script>
 const $ = id => document.getElementById(id);
 const FIELD = 144;                       // inci
@@ -114,54 +121,79 @@ function fit() {
 }
 addEventListener('resize', fit); fit();
 
-// ---------- transform lapangan (sistem koordinat RoadRunner) ----------
-// Origin (0,0) = tengah lapangan. +x ke kanan, +y ke atas, -72..72 in.
-// Heading 0 = menghadap +x (kanan), positif = berlawanan jarum jam.
-let view = { cx: 0, cy: 0, span: FIELD };             // pusat pandangan (inci)
+// ---------- setelan (disimpan di browser) ----------
+const DEF = { lo: -72, swap: false, flipH: false, flipV: false, theme: 'dark', accent: '#4da3ff', trailLen: 1500,
+  side: 'right', hide: [], order: [], graphs: [{ sig: ['cross'], win: 10, min: '', max: '' }] };
+let C = Object.assign({}, DEF);
+try { Object.assign(C, JSON.parse(localStorage.getItem('fpcfg') || '{}')); } catch (_) {}
+const save = () => { try { localStorage.setItem('fpcfg', JSON.stringify(C)); } catch (_) {} };
+
+// ---------- transform lapangan ----------
+// Koordinat robot -> (u,v) layar: swap = tukar x/y, flipH/flipV = balik arah, lo = sudut kiri-bawah (-72 tengah / 0 pojok)
+let view = { u: 0, v: 0, span: FIELD };
 function sc() { return cv.width / view.span; }
-const SX = (x, y) => (x - (view.cx - view.span / 2)) * sc();
-const SY = (x, y) => cv.height - (y - (view.cy - view.span / 2)) * sc();
+function toUV(x, y) {
+  let u = C.swap ? y : x, v = C.swap ? x : y;
+  if (C.flipH) u = 2 * C.lo + FIELD - u;
+  if (C.flipV) v = 2 * C.lo + FIELD - v;
+  return [u, v];
+}
+function fromUV(u, v) {
+  if (C.flipH) u = 2 * C.lo + FIELD - u;
+  if (C.flipV) v = 2 * C.lo + FIELD - v;
+  return C.swap ? [v, u] : [u, v];
+}
+const PU = (u, v) => [(u - (view.u - view.span / 2)) * sc(), cv.height - (v - (view.v - view.span / 2)) * sc()];
+const SX = (x, y) => PU(...toUV(x, y))[0];
+const SY = (x, y) => PU(...toUV(x, y))[1];
+function dir(h) {                                       // arah heading di kanvas (dx, dy)
+  const a = Math.cos(h), b = Math.sin(h);
+  let u = C.swap ? b : a, v = C.swap ? a : b;
+  if (C.flipH) u = -u; if (C.flipV) v = -v;
+  return [u, -v];
+}
 function toField(px, py) {
   const r = cv.getBoundingClientRect(), k = cv.width / r.width, s = sc();
-  return [ (px - r.left) * k / s + (view.cx - view.span / 2),
-           (cv.height - (py - r.top) * k) / s + (view.cy - view.span / 2) ];
+  return fromUV((px - r.left) * k / s + (view.u - view.span / 2),
+                (cv.height - (py - r.top) * k) / s + (view.v - view.span / 2));
 }
 
 // ---------- gambar ----------
 function drawField() {
-  const H = FIELD / 2, d = window.devicePixelRatio || 1;
+  const d = window.devicePixelRatio || 1, lo = C.lo, hn = C.swap ? 'y' : 'x', vn = C.swap ? 'x' : 'y';
   g.clearRect(0, 0, cv.width, cv.height);
   g.lineWidth = 1;
-  for (let i = -H; i <= H; i += 24) {                   // tile 24 in, dari -72 sampai 72
-    g.strokeStyle = i === 0 ? '#34405a' : '#1c2333';
-    g.beginPath(); g.moveTo(SX(i, -H), SY(i, -H)); g.lineTo(SX(i, H), SY(i, H)); g.stroke();   // x = i
-    g.beginPath(); g.moveTo(SX(-H, i), SY(-H, i)); g.lineTo(SX(H, i), SY(H, i)); g.stroke();   // y = i
+  for (let i = 0; i <= FIELD; i += 24) {
+    const q = lo + i, a = PU(q, lo), b2 = PU(q, lo + FIELD), c2 = PU(lo, q), e = PU(lo + FIELD, q);
+    g.strokeStyle = i === 72 ? '#34405a' : '#1c2333';
+    g.beginPath(); g.moveTo(a[0], a[1]); g.lineTo(b2[0], b2[1]); g.stroke();
+    g.beginPath(); g.moveTo(c2[0], c2[1]); g.lineTo(e[0], e[1]); g.stroke();
   }
-  g.strokeStyle = '#4a5878'; g.lineWidth = 2;
-  g.strokeRect(SX(-H, H), SY(-H, H), FIELD * sc(), FIELD * sc());
+  const tl = PU(lo, lo + FIELD);
+  g.strokeStyle = '#4a5878'; g.lineWidth = 2; g.strokeRect(tl[0], tl[1], FIELD * sc(), FIELD * sc());
   g.fillStyle = '#5b6882'; g.font = (11 * d) + 'px system-ui';
-  for (let i = -H; i <= H; i += 24) {
-    if (i > -H) g.fillText(i, SX(i, -H) + 3, SY(i, -H) - 4);      // label x di tepi bawah
-    if (i < H) g.fillText(i, SX(-H, i) + 3, SY(-H, i) - 3);       // label y di tepi kiri
+  for (let i = 0; i <= FIELD; i += 24) {
+    const q = lo + i, hv = C.flipH ? 2 * lo + FIELD - q : q, vv = C.flipV ? 2 * lo + FIELD - q : q;
+    const bo = PU(q, lo), le = PU(lo, q);
+    if (i > 0) g.fillText(hn + ' ' + hv, bo[0] + 3, bo[1] - 4);
+    if (i < FIELD) g.fillText(vn + ' ' + vv, le[0] + 3, le[1] - 3);
   }
   g.fillStyle = '#8b93a5'; g.font = (13 * d) + 'px system-ui';
-  g.fillText('+x →', SX(H, 0) - 46 * d, SY(H, 0) - 8 * d);
-  g.fillText('+y ↑', SX(0, H) + 8 * d, SY(0, H) + 18 * d);
+  g.fillText('+' + hn + (C.flipH ? ' ←' : ' →'), cv.width - 60 * d, cv.height - 22 * d);
+  g.fillText('+' + vn + (C.flipV ? ' ↓' : ' ↑'), 8 * d, 18 * d);
 }
 
 function drawPath() {
   if (!$('oPath').checked) return;
   pathCache.forEach((seg, si) => {
-    g.strokeStyle = (S && si === S.idx) ? '#4da3ff' : '#2f4a73';
+    g.strokeStyle = (S && si === S.idx) ? C.accent : '#2f4a73';
     g.lineWidth = (S && si === S.idx) ? 3 : 2;
     g.beginPath();
     seg.forEach((p, i) => i ? g.lineTo(SX(p[0], p[1]), SY(p[0], p[1])) : g.moveTo(SX(p[0], p[1]), SY(p[0], p[1])));
     g.stroke();
   });
-  if (pathCache.length) {                               // titik ujung segmen
-    g.fillStyle = '#4da3ff';
-    pathCache.forEach(seg => { const e = seg[seg.length - 1]; g.beginPath(); g.arc(SX(e[0], e[1]), SY(e[0], e[1]), 4, 0, 7); g.fill(); });
-  }
+  g.fillStyle = C.accent;
+  pathCache.forEach(seg => { const e = seg[seg.length - 1]; g.beginPath(); g.arc(SX(e[0], e[1]), SY(e[0], e[1]), 4, 0, 7); g.fill(); });
 }
 
 function drawTrail() {
@@ -177,69 +209,150 @@ function drawTrail() {
 function drawRobot() {
   if (!S) return;
   const [x, y, h] = S.pose, size = (+$('rsize').value || 18) * sc();
-  const rx = SX(x, y), ry = SY(x, y);
-  g.save();
-  g.translate(rx, ry);
-  g.rotate(-h);                                         // canvas y terbalik -> putar -h (CCW positif)
-  g.fillStyle = 'rgba(77,163,255,.25)'; g.strokeStyle = '#4da3ff'; g.lineWidth = 2;
+  const rx = SX(x, y), ry = SY(x, y), dd = dir(h);
+  g.save(); g.translate(rx, ry); g.rotate(Math.atan2(dd[1], dd[0]));
+  g.fillStyle = 'rgba(77,163,255,.25)'; g.strokeStyle = C.accent; g.lineWidth = 2;
   g.fillRect(-size / 2, -size / 2, size, size); g.strokeRect(-size / 2, -size / 2, size, size);
-  g.strokeStyle = '#ffb74d'; g.lineWidth = 3;           // panah depan robot
+  g.strokeStyle = '#ffb74d'; g.lineWidth = 3;
   g.beginPath(); g.moveTo(0, 0); g.lineTo(size / 2 + 6, 0); g.stroke();
   g.fillStyle = '#ffb74d'; g.beginPath();
   g.moveTo(size / 2 + 12, 0); g.lineTo(size / 2 + 2, -5); g.lineTo(size / 2 + 2, 5); g.fill();
   g.restore();
-
-  if (S.busy) {                                          // titik terdekat di path + target heading
-    const cx = SX(S.closest[0], S.closest[1]), cy = SY(S.closest[0], S.closest[1]);
+  if (S.busy) {
+    const cx = SX(S.closest[0], S.closest[1]), cy = SY(S.closest[0], S.closest[1]), td = dir(S.th), L = size * 0.9;
     g.fillStyle = '#ff5c5c'; g.beginPath(); g.arc(cx, cy, 5, 0, 7); g.fill();
     g.strokeStyle = '#ff5c5c'; g.setLineDash([5, 4]); g.lineWidth = 1.5;
-    g.beginPath(); g.moveTo(rx, ry); g.lineTo(cx, cy); g.stroke();
-    g.setLineDash([]);
+    g.beginPath(); g.moveTo(rx, ry); g.lineTo(cx, cy); g.stroke(); g.setLineDash([]);
     g.strokeStyle = '#d17bff'; g.lineWidth = 2;
-    const L = size * 0.9;
-    g.beginPath(); g.moveTo(rx, ry);
-    g.lineTo(rx + Math.cos(S.th) * L, ry - Math.sin(S.th) * L); g.stroke();
+    g.beginPath(); g.moveTo(rx, ry); g.lineTo(rx + td[0] * L, ry + td[1] * L); g.stroke();
   }
-  if ($('oVel').checked) {                               // vektor kecepatan (1 s ke depan)
+  if ($('oVel').checked) {
     g.strokeStyle = '#3ddc84'; g.lineWidth = 2;
-    g.beginPath(); g.moveTo(rx, ry);
-    g.lineTo(SX(x + S.vel[0], y + S.vel[1]), SY(x + S.vel[0], y + S.vel[1])); g.stroke();
+    g.beginPath(); g.moveTo(rx, ry); g.lineTo(SX(x + S.vel[0], y + S.vel[1]), SY(x + S.vel[0], y + S.vel[1])); g.stroke();
   }
 }
 
 function frame() {
-  if (S && $('oFollow').checked) { view.span = 72; view.cx = S.pose[0]; view.cy = S.pose[1]; }
-  else { view.span = FIELD; view.cx = view.cy = 0; }
-  drawField(); drawPath(); drawTrail(); drawRobot();
-  drawPlot();
+  if (S && $('oFollow').checked) { view.span = 72; [view.u, view.v] = toUV(S.pose[0], S.pose[1]); }
+  else { view.span = FIELD; view.u = view.v = C.lo + 72; }
+  drawField(); drawPath(); drawTrail(); drawRobot(); drawPlot();
   requestAnimationFrame(frame);
 }
 requestAnimationFrame(frame);
 
+let setMode = false;
 cv.addEventListener('mousemove', e => {
   const [fx, fy] = toField(e.clientX, e.clientY);
   $('mouse').textContent = 'kursor: x ' + fx.toFixed(1) + ', y ' + fy.toFixed(1);
 });
 cv.addEventListener('mouseleave', () => $('mouse').textContent = '');
+cv.addEventListener('click', e => {
+  if (!setMode) return;
+  const [fx, fy] = toField(e.clientX, e.clientY), hd = S ? S.pose[2] * 180 / Math.PI : 0;
+  fetch('/api/pose?x=' + fx.toFixed(2) + '&y=' + fy.toFixed(2) + '&h=' + hd.toFixed(1));
+  setMode = false; $('setpose').textContent = 'Set pose (klik)'; trail = [];
+});
+$('setpose').onclick = () => { setMode = !setMode; $('setpose').textContent = setMode ? 'Klik posisi robot di lapangan...' : 'Set pose (klik)'; };
 $('clr').onclick = () => { trail = []; };
 
-// ---------- plot error ----------
-function drawPlot() {
-  const c = $('plot'), d = window.devicePixelRatio || 1;
-  const w = c.clientWidth * d, h = c.clientHeight * d;
-  if (c.width !== w) { c.width = w; c.height = h; }
-  const q = c.getContext('2d'); q.clearRect(0, 0, w, h);
-  q.strokeStyle = '#2a3242'; q.beginPath(); q.moveTo(0, h / 2); q.lineTo(w, h / 2); q.stroke();
-  if (errHist.length < 2) return;
-  const now = errHist[errHist.length - 1].t;
-  const maxv = Math.max(2, ...errHist.map(e => Math.abs(e.v)));
-  q.strokeStyle = '#ffb74d'; q.lineWidth = 1.5 * d; q.beginPath();
-  errHist.forEach((e, i) => {
-    const px = w - (now - e.t) / 10 * w, py = h / 2 - e.v / maxv * (h / 2 - 3);
-    i ? q.lineTo(px, py) : q.moveTo(px, py);
-  });
-  q.stroke();
+// ---------- sinyal & grafik ----------
+const sigs = {}, gfx = [], PAL = ['#4da3ff', '#3ddc84', '#ffb74d', '#ff5c5c', '#d17bff', '#4dd0e1'];
+function pushSig(p) {
+  const R = 180 / Math.PI;
+  const o = { x: p.pose[0], y: p.pose[1], heading: p.pose[2] * R, vx: p.vel[0], vy: p.vel[1], omega: p.vel[2],
+    speed: Math.hypot(p.vel[0], p.vel[1]), cross: p.err.cross, 'heading error': p.err.head * R, remaining: p.err.rem, progress: p.tval };
+  p.pw.forEach((v, i) => o['power ' + i] = v);
+  Object.entries(p.tel || {}).forEach(([k, v]) => { const n = parseFloat(v); if (isFinite(n)) o['tel: ' + k] = n; });
+  for (const k in o) { const a = sigs[k] = sigs[k] || []; a.push({ t: p.t, v: o[k] }); while (a.length && p.t - a[0].t > 120) a.shift(); }
 }
+function drawPlot() {
+  gfx.forEach(({ c, cfg }) => {
+    const d = window.devicePixelRatio || 1, w = c.clientWidth * d, h = c.clientHeight * d;
+    if (c.width !== w || c.height !== h) { c.width = w; c.height = h; }
+    const q = c.getContext('2d'); q.clearRect(0, 0, w, h);
+    const now = S ? S.t : 0, fixed = cfg.min !== '' && cfg.max !== '' && cfg.min != null && cfg.max != null;
+    let lo = fixed ? +cfg.min : Infinity, hi = fixed ? +cfg.max : -Infinity;
+    if (!fixed) cfg.sig.forEach(k => (sigs[k] || []).forEach(e => { if (now - e.t <= cfg.win) { lo = Math.min(lo, e.v); hi = Math.max(hi, e.v); } }));
+    if (!isFinite(lo)) { lo = -1; hi = 1; } if (hi - lo < 1e-6) { lo -= 1; hi += 1; }
+    const Yp = v => h - 4 - (v - lo) / (hi - lo) * (h - 8);
+    q.strokeStyle = '#2a3242'; q.beginPath(); q.moveTo(0, Yp(0)); q.lineTo(w, Yp(0)); q.stroke();
+    q.fillStyle = '#8b93a5'; q.font = 10 * d + 'px system-ui'; q.fillText(hi.toFixed(2), 3, 11 * d); q.fillText(lo.toFixed(2), 3, h - 4);
+    cfg.sig.forEach((k, si) => {
+      q.strokeStyle = PAL[si % PAL.length]; q.lineWidth = 1.5 * d; q.beginPath(); let st = false;
+      (sigs[k] || []).forEach(e => { if (now - e.t > cfg.win) return; const px = w - (now - e.t) / cfg.win * w; st ? q.lineTo(px, Yp(e.v)) : q.moveTo(px, Yp(e.v)); st = true; });
+      q.stroke();
+    });
+  });
+}
+function buildGraphs() {
+  const a = document.querySelector('aside');
+  a.querySelectorAll('.gcard').forEach(e => e.remove()); gfx.length = 0;
+  C.graphs.forEach((cfg, gi) => {
+    const d = document.createElement('div'); d.className = 'card gcard'; d.dataset.w = 'Grafik ' + (gi + 1);
+    d.innerHTML = '<h2>Grafik ' + (gi + 1) + '<span class="gx" style="float:right;cursor:pointer">✕</span></h2><canvas></canvas><div class="chips"></div>' +
+      '<div class="bar"><select><option>+ sinyal</option></select> detik <input type="number" style="width:48px"> min <input type="number" style="width:54px" placeholder="auto"> max <input type="number" style="width:54px" placeholder="auto"></div>';
+    a.appendChild(d);
+    const sel = d.querySelector('select'), [win, mn, mx] = d.querySelectorAll('input'), chips = d.querySelector('.chips');
+    const drawChips = () => { chips.innerHTML = ''; cfg.sig.forEach((k, i) => { const s = document.createElement('span'); s.className = 'chip'; s.style.borderLeft = '3px solid ' + PAL[i % PAL.length]; s.textContent = k + ' ✕'; s.onclick = () => { cfg.sig.splice(i, 1); save(); drawChips(); }; chips.appendChild(s); }); };
+    sel.onfocus = () => { sel.innerHTML = '<option>+ sinyal</option>' + Object.keys(sigs).map(k => '<option>' + k + '</option>').join(''); };
+    sel.onchange = () => { if (sel.selectedIndex > 0 && !cfg.sig.includes(sel.value)) { cfg.sig.push(sel.value); save(); drawChips(); } sel.selectedIndex = 0; };
+    win.value = cfg.win; win.onchange = () => { cfg.win = +win.value || 10; save(); };
+    mn.value = cfg.min; mn.onchange = () => { cfg.min = mn.value === '' ? '' : +mn.value; save(); };
+    mx.value = cfg.max; mx.onchange = () => { cfg.max = mx.value === '' ? '' : +mx.value; save(); };
+    d.querySelector('.gx').onclick = () => { C.graphs.splice(gi, 1); save(); buildGraphs(); applyCfg(); renderSettings(); };
+    drawChips(); gfx.push({ c: d.querySelector('canvas'), cfg });
+  });
+}
+
+// ---------- panel setelan ----------
+function applyCfg() {
+  document.body.classList.toggle('light', C.theme === 'light');
+  document.documentElement.style.setProperty('--accent', C.accent);
+  const m = document.querySelector('main'), a = document.querySelector('aside'), ws = [...a.querySelectorAll(':scope > .card')];
+  m.style.gridTemplateColumns = C.side === 'left' ? '380px minmax(300px,1fr)' : ''; a.style.order = C.side === 'left' ? -1 : 0;
+  ws.forEach((w, k) => { const i = C.order.indexOf(w.dataset.w); w.style.order = i < 0 ? 50 + k : i; w.style.display = C.hide.includes(w.dataset.w) ? 'none' : ''; });
+}
+function renderSettings() {
+  const P = { rr: ['RoadRunner (tengah, x→ y↑)', -72, false], pedro: ['Pedro Pathing (pojok 0..144)', 0, false], xup: ['Tengah, x↑ y→', -72, true] };
+  const names = [...document.querySelectorAll('aside > .card')].map(w => w.dataset.w);
+  const ord = C.order.filter(n => names.includes(n)).concat(names.filter(n => !C.order.includes(n)));
+  const s = $('set');
+  s.innerHTML = '<h3>Sistem koordinat</h3><label>Preset <select id="s_pre">' + Object.entries(P).map(([k, v]) => '<option value="' + k + '">' + v[0] + '</option>').join('') + '<option value="custom">Custom</option></select></label>' +
+    '<label>Origin <select id="s_lo"><option value="-72">tengah (-72..72)</option><option value="0">pojok (0..144)</option></select></label>' +
+    '<label><input type="checkbox" id="s_sw"> tukar sumbu (x tegak, y mendatar)</label><label><input type="checkbox" id="s_fh"> balik kiri-kanan</label><label><input type="checkbox" id="s_fv"> balik atas-bawah</label>' +
+    '<h3>Tampilan</h3><label>Tema <select id="s_th"><option>dark</option><option>light</option></select></label><label>Warna aksen <input type="color" id="s_ac"></label>' +
+    '<label>Panjang jejak <input type="number" id="s_tr" min="0" max="5000" step="100"></label><label>Panel samping <select id="s_sd"><option value="right">kanan</option><option value="left">kiri</option></select></label>' +
+    '<h3>Panel (tampil / urutan)</h3><div id="s_w"></div><h3>Konfigurasi</h3><div class="bar"><button id="s_g">+ Grafik</button><button id="s_x">Ekspor</button><button id="s_i">Impor</button><button id="s_r">Reset</button></div>';
+  const bind = (id, key, conv, re) => { const el = $(id); if (el.type === 'checkbox') el.checked = C[key]; else el.value = C[key]; el.onchange = () => { C[key] = el.type === 'checkbox' ? el.checked : conv ? conv(el.value) : el.value; save(); applyCfg(); if (re) renderSettings(); }; };
+  bind('s_lo', 'lo', Number, 1); bind('s_sw', 'swap', 0, 1); bind('s_fh', 'flipH', 0, 1); bind('s_fv', 'flipV', 0, 1);
+  bind('s_th', 'theme'); bind('s_ac', 'accent'); bind('s_tr', 'trailLen', Number); bind('s_sd', 'side');
+  $('s_pre').value = Object.keys(P).find(k => P[k][1] === C.lo && P[k][2] === C.swap && !C.flipH && !C.flipV) || 'custom';
+  $('s_pre').onchange = e => { const p = P[e.target.value]; if (p) { Object.assign(C, { lo: p[1], swap: p[2], flipH: false, flipV: false }); save(); renderSettings(); } };
+  ord.forEach((n, i) => {
+    const r = document.createElement('label'); r.innerHTML = '<input type="checkbox"' + (C.hide.includes(n) ? '' : ' checked') + '><span style="flex:1">' + n + '</span><button>↑</button><button>↓</button>';
+    const [cb, up, dn] = [r.querySelector('input'), ...r.querySelectorAll('button')];
+    cb.onchange = () => { C.hide = cb.checked ? C.hide.filter(x => x !== n) : C.hide.concat(n); save(); applyCfg(); };
+    const mv = k => { const j = i + k; if (j < 0 || j >= ord.length) return; [ord[i], ord[j]] = [ord[j], ord[i]]; C.order = ord; save(); applyCfg(); renderSettings(); };
+    up.onclick = () => mv(-1); dn.onclick = () => mv(1); $('s_w').appendChild(r);
+  });
+  $('s_g').onclick = () => { C.graphs.push({ sig: ['speed'], win: 10, min: '', max: '' }); save(); buildGraphs(); applyCfg(); renderSettings(); };
+  $('s_x').onclick = () => prompt('Salin konfigurasi ini:', JSON.stringify(C));
+  $('s_i').onclick = () => { const t = prompt('Tempel konfigurasi:'); if (t) try { C = Object.assign({}, DEF, JSON.parse(t)); save(); location.reload(); } catch (_) {} };
+  $('s_r').onclick = () => { try { localStorage.removeItem('fpcfg'); } catch (_) {} location.reload(); };
+}
+$('gear').onclick = () => $('set').classList.toggle('on');
+document.querySelectorAll('aside > .card').forEach(w => w.dataset.w = w.querySelector('h2').firstChild.textContent.trim());
+buildGraphs(); applyCfg(); renderSettings();
+
+// ---------- aksi (tombol dari Dash.action) ----------
+async function loadActs() {
+  try {
+    const a = await (await fetch('/api/actions')).json(), box = $('acts'); box.innerHTML = '';
+    a.actions.forEach(n => { const b = document.createElement('button'); b.textContent = n; b.onclick = () => fetch('/api/run?name=' + encodeURIComponent(n)); box.appendChild(b); });
+    if (!a.actions.length) box.innerHTML = '<span style="color:var(--dim)">belum ada, daftarkan dengan Dash.action("nama", () -> ...)</span>';
+  } catch (_) {}
+}
+loadActs();
 
 // ---------- terima data ----------
 const f1 = (v, n = 1) => (+v).toFixed(n);
@@ -253,7 +366,7 @@ function onPacket(p) {
   const [x, y, h] = p.pose;
   const last = trail[trail.length - 1];
   if (!last || Math.hypot(last[0] - x, last[1] - y) > 0.25) trail.push([x, y]);
-  if (trail.length > 1500) trail.shift();
+  while (trail.length > C.trailLen) trail.shift();
 
   if (p.path) pathCache = p.path;
 
@@ -278,8 +391,7 @@ function onPacket(p) {
     el.style.background = v >= 0 ? 'var(--accent)' : 'var(--warn)';
   });
 
-  errHist.push({ t: p.t, v: p.err.cross });
-  while (errHist.length && p.t - errHist[0].t > 10) errHist.shift();
+  pushSig(p);
 
   $('tel').innerHTML = Object.entries(p.tel || {}).map(([k, v]) => `<tr><td>${k}</td><td>${v}</td></tr>`).join('') ||
     '<tr><td colspan=2 style="color:var(--dim)">kosong (pakai Dash.put)</td></tr>';
@@ -295,7 +407,7 @@ function connect() {
 connect();
 
 // ---------- tuning ----------
-const open = new Set(['Translation', 'Heading']);
+const open = new Set(['Tune \u203a Translation', 'Tune \u203a Heading']);
 let sendTimer = {};
 function send(name, value) {
   clearTimeout(sendTimer[name]);
@@ -308,7 +420,7 @@ async function loadParams() {
   let data;
   try { data = await (await fetch('/api/params')).json(); } catch (e) { $('params').textContent = 'gagal memuat'; return; }
   const groups = {};
-  data.params.forEach(p => { const [gname, f] = p.k.split('.'); (groups[gname] = groups[gname] || []).push({ ...p, f }); });
+  data.params.forEach(p => { const c = p.c || p.k.split('.')[0]; (groups[c] = groups[c] || []).push({ ...p, f: p.k.split('.').pop() }); });
   const root = $('params'); root.innerHTML = '';
   Object.entries(groups).forEach(([gname, list]) => {
     const d = document.createElement('details'); if (open.has(gname)) d.open = true;
