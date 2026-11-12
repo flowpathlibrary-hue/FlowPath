@@ -1,246 +1,334 @@
-<!doctype html>
-<html lang="en">
+<!DOCTYPE html>
+<html lang="id">
 <head>
 <meta charset="utf-8">
-<meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="viewport" content="width=device-width, initial-scale=1">
 <title>FlowPath Dashboard</title>
 <style>
-:root{--bg:#f4f5f7;--panel:#fff;--text:#1b1f24;--muted:#6b7280;--line:#d9dde3;--accent:#2563eb;--ok:#16a34a;--bad:#dc2626;--grid:#e3e6eb;--field:#eef1f5;--c1:#2563eb;--c2:#d97706;--c3:#16a34a}
-@media(prefers-color-scheme:dark){:root{--bg:#0f1318;--panel:#171c23;--text:#e6e9ee;--muted:#8b95a5;--line:#2a313b;--accent:#4f8cff;--grid:#222932;--field:#12171d;--c1:#4f8cff;--c2:#f5a524;--c3:#3ccf74}}
-*{box-sizing:border-box}
-body{margin:0;background:var(--bg);color:var(--text);font:14px/1.4 system-ui,-apple-system,Segoe UI,Roboto,sans-serif}
-header{display:flex;align-items:center;gap:10px;padding:10px 16px;border-bottom:1px solid var(--line);background:var(--panel);flex-wrap:wrap}
-header h1{font-size:16px;margin:0;font-weight:650}
-.dot{width:10px;height:10px;border-radius:50%;background:var(--bad)}.dot.on{background:var(--ok)}
-.sp{flex:1}
-.tabs{display:flex;gap:4px}
-.tabs button{border:1px solid var(--line);background:var(--bg);padding:5px 12px;border-radius:7px;color:var(--muted)}
-.tabs button.on{background:var(--accent);border-color:var(--accent);color:#fff}
-main{display:grid;grid-template-columns:minmax(300px,1fr) 390px;gap:12px;padding:12px;max-width:1400px;margin:auto}
-@media(max-width:880px){main{grid-template-columns:1fr}}
-.card{background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:12px;margin-bottom:12px}
-.card h2{font-size:12px;text-transform:uppercase;letter-spacing:.06em;color:var(--muted);margin:0 0 8px}
-canvas{width:100%;display:block;border-radius:6px;touch-action:none}
-#field{aspect-ratio:1;background:var(--field)}
-#chart{height:200px}
-table{width:100%;border-collapse:collapse;font-variant-numeric:tabular-nums}
-td{padding:2px 0;border-bottom:1px solid var(--line)}td:last-child{text-align:right}td:first-child{color:var(--muted)}
-.row{display:grid;grid-template-columns:1fr 84px;gap:6px 8px;align-items:center;margin:6px 0}
-.row label{font-size:12px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
-.row input[type=range]{grid-column:1/3;width:100%;margin:0}
-input[type=number],select{padding:3px 6px;border:1px solid var(--line);border-radius:6px;background:var(--bg);color:var(--text);font:inherit;min-width:0}
-.row input[type=number]{width:100%}
-.row.chg label{color:var(--accent);font-weight:600}
-.grp{font-weight:650;margin:12px 0 2px;font-size:13px}
-button{font:inherit;padding:6px 10px;border:1px solid var(--line);border-radius:7px;background:var(--panel);color:var(--text);cursor:pointer}
-button.p{background:var(--accent);border-color:var(--accent);color:#fff}
-.btns{display:flex;gap:6px;flex-wrap:wrap;margin-bottom:6px}
-textarea{width:100%;height:150px;margin-top:8px;font:12px ui-monospace,Menlo,monospace;background:var(--bg);color:var(--text);border:1px solid var(--line);border-radius:6px}
-.badge{font-size:11px;padding:2px 7px;border-radius:99px;background:var(--bg);border:1px solid var(--line);color:var(--muted)}
-.badge.warn{color:var(--c2);border-color:var(--c2)}
-.wp{border:1px solid var(--line);border-radius:8px;padding:8px;margin:6px 0}.wp.sel{border-color:var(--accent)}
-.wp .g{display:grid;grid-template-columns:repeat(3,1fr);gap:6px;margin-top:6px}
-.wp .g label{font-size:11px;color:var(--muted);display:block}
-.wp .g input,.wp .g select{width:100%}
-.hide{display:none}
-.hint{color:var(--muted);font-size:12px}
+  :root { --bg:#0f1218; --panel:#181d27; --line:#2a3242; --text:#e6e9ef; --dim:#8b93a5;
+          --accent:#4da3ff; --ok:#3ddc84; --warn:#ffb74d; --bad:#ff5c5c; }
+  * { box-sizing:border-box; }
+  body { margin:0; background:var(--bg); color:var(--text); font:14px system-ui,sans-serif; }
+  header { display:flex; align-items:center; gap:12px; padding:10px 16px; background:var(--panel); border-bottom:1px solid var(--line); }
+  header h1 { font-size:16px; margin:0; }
+  .dot { width:10px; height:10px; border-radius:50%; background:var(--bad); }
+  .dot.on { background:var(--ok); }
+  main { display:grid; grid-template-columns:minmax(300px,1fr) 380px; gap:12px; padding:12px; height:calc(100vh - 47px); }
+  @media (max-width:900px){ main{ grid-template-columns:1fr; height:auto; } }
+  .card { background:var(--panel); border:1px solid var(--line); border-radius:8px; padding:10px; }
+  #fieldWrap { display:flex; flex-direction:column; gap:8px; min-height:0; }
+  #stage { flex:1; min-height:300px; display:flex; align-items:center; justify-content:center; }
+  canvas { background:#0b0e14; border-radius:6px; max-width:100%; max-height:100%; aspect-ratio:1/1; }
+  .bar { display:flex; gap:14px; flex-wrap:wrap; align-items:center; color:var(--dim); font-size:12px; }
+  .bar label { display:flex; gap:4px; align-items:center; cursor:pointer; }
+  button { background:#232b3a; color:var(--text); border:1px solid var(--line); border-radius:6px; padding:5px 10px; cursor:pointer; }
+  button:hover { border-color:var(--accent); }
+  aside { display:flex; flex-direction:column; gap:12px; overflow:auto; min-height:0; }
+  table { width:100%; border-collapse:collapse; }
+  td { padding:2px 4px; font-variant-numeric:tabular-nums; }
+  td:first-child { color:var(--dim); width:42%; }
+  h2 { font-size:12px; text-transform:uppercase; letter-spacing:.06em; color:var(--dim); margin:0 0 6px; }
+  .big { font-size:20px; font-weight:600; font-variant-numeric:tabular-nums; }
+  .pill { padding:1px 8px; border-radius:10px; background:#232b3a; font-size:12px; }
+  .pw { display:flex; gap:6px; align-items:flex-end; height:50px; }
+  .pw div { flex:1; background:#232b3a; position:relative; border-radius:3px; height:100%; }
+  .pw i { position:absolute; left:0; right:0; background:var(--accent); }
+  details { border-top:1px solid var(--line); padding:4px 0; }
+  summary { cursor:pointer; color:var(--accent); font-weight:600; padding:4px 0; }
+  .p { display:grid; grid-template-columns:1fr 78px; gap:2px 8px; align-items:center; padding:3px 0; }
+  .p .n { grid-column:1/3; color:var(--dim); font-size:12px; display:flex; justify-content:space-between; }
+  .p input[type=range] { width:100%; }
+  .p input[type=number] { width:100%; background:#0b0e14; color:var(--text); border:1px solid var(--line); border-radius:4px; padding:2px 4px; }
+  .mod { color:var(--warn); }
+  #plot { width:100%; height:80px; }
 </style>
 </head>
 <body>
 <header>
-  <span class="dot" id="dot" title="robot connection"></span><h1>FlowPath</h1>
-  <span class="badge" id="mode">offline</span><span class="badge" id="busy">-</span>
-  <div class="tabs"><button id="tLive" class="on">Live</button><button id="tPlan">Planner</button></div>
-  <span class="sp"></span>
-  <label>Robot <input id="rsize" type="number" value="18" style="width:54px"> in</label>
-  <button id="clrTrail">Clear trail</button>
+  <span class="dot" id="conn"></span><h1>FlowPath</h1>
+  <span class="pill" id="mode">-</span><span class="pill" id="busy">idle</span>
+  <span style="margin-left:auto;color:var(--dim)" id="hz"></span>
 </header>
+
 <main>
-  <div>
-    <div class="card"><h2>Field (144 x 144 in)</h2><canvas id="field"></canvas>
-      <div class="hint hide" id="planHint">Click the field to add a waypoint. Drag points to move them, drag hollow diamonds to bend curves.</div></div>
-    <div class="card" id="chartCard"><h2>Errors (last 6 s)</h2><canvas id="chart"></canvas></div>
-  </div>
-  <div>
-    <div id="liveSide">
-      <div class="card"><h2>Telemetry</h2><table id="tel"><tr><td>waiting for robot...</td><td></td></tr></table></div>
-      <div class="card">
-        <h2>Tuning <span class="badge warn" id="savedBadge" style="display:none">saved overrides active</span></h2>
-        <div class="btns"><button class="p" id="save">Save to robot</button><button id="clear">Reset to code</button><button id="copy">Copy as Java</button></div>
-        <textarea id="java" class="hide" readonly></textarea>
-        <div id="params"><span class="hint">Connect to the robot to tune.</span></div>
-      </div>
+  <section id="fieldWrap" class="card">
+    <div id="stage"><canvas id="cv"></canvas></div>
+    <div class="bar">
+      <label><input type="checkbox" id="oTrail" checked> jejak</label>
+      <label><input type="checkbox" id="oPath" checked> path</label>
+      <label><input type="checkbox" id="oVel" checked> vektor kecepatan</label>
+      <label><input type="checkbox" id="oFollow"> ikuti robot</label>
+      <label>ukuran robot (in) <input type="number" id="rsize" value="18" min="6" max="24" style="width:52px"></label>
+      <button id="clr">Hapus jejak</button>
+      <span id="mouse" style="margin-left:auto"></span>
     </div>
-    <div id="planSide" class="hide">
-      <div class="card"><h2>Route planner</h2>
-        <div class="btns"><button id="addCtl">+ control point</button><button id="delWp">Delete waypoint</button><button id="resetPlan">New route</button></div>
-        <div id="wps"></div>
-      </div>
-      <div class="card"><h2>Generated code</h2>
-        <div class="btns"><button class="p" id="copyCode">Copy code</button></div>
-        <textarea id="code" readonly></textarea></div>
+  </section>
+
+  <aside>
+    <div class="card">
+      <h2>Posisi</h2>
+      <div class="big"><span id="px">0</span>, <span id="py">0</span> <span style="font-size:13px;color:var(--dim)">in</span></div>
+      <div class="big"><span id="ph">0</span>° <span style="font-size:13px;color:var(--dim)">heading</span></div>
+      <table>
+        <tr><td>kecepatan</td><td id="vs">0</td></tr>
+        <tr><td>omega</td><td id="vw">0</td></tr>
+        <tr><td>segmen</td><td id="seg">-</td></tr>
+        <tr><td>progress (t)</td><td id="tv">0</td></tr>
+        <tr><td>target heading</td><td id="th">0</td></tr>
+        <tr><td>error cross-track</td><td id="ec">0</td></tr>
+        <tr><td>error heading</td><td id="eh">0</td></tr>
+        <tr><td>sisa jarak</td><td id="er">0</td></tr>
+      </table>
     </div>
-  </div>
+    <div class="card">
+      <h2>Power motor</h2><div class="pw" id="pw"></div>
+    </div>
+    <div class="card">
+      <h2>Error cross-track (10 s)</h2><canvas id="plot"></canvas>
+    </div>
+    <div class="card"><h2>Telemetry</h2><table id="tel"></table></div>
+    <div class="card">
+      <h2>Tuning (static variable)</h2>
+      <div class="bar" style="margin-bottom:6px">
+        <button id="save">Save</button><button id="clear">Clear saved</button><span id="msg"></span>
+      </div>
+      <div id="params">memuat...</div>
+    </div>
+  </aside>
 </main>
+
 <script>
-const $=id=>document.getElementById(id), F=144, css=n=>getComputedStyle(document.documentElement).getPropertyValue(n).trim();
-let last=null,tab='live',trail=[],hist=[];
+const $ = id => document.getElementById(id);
+const FIELD = 144;                       // inci
+const cv = $('cv'), g = cv.getContext('2d');
+let S = null;                            // packet terakhir
+let trail = [], pathCache = [], lastT = 0, rate = 0, lastRecv = 0;
+const errHist = [];                      // {t, v}
 
-// ================= live stream =================
-function connect(){
-  const es=new EventSource('/stream');
-  es.onopen=()=>{$('dot').classList.add('on');loadParams()};
-  es.onerror=()=>{$('dot').classList.remove('on');$('mode').textContent='offline';es.close();setTimeout(connect,1500)};
-  es.onmessage=e=>{last=JSON.parse(e.data);onPacket(last)};
+// ---------- ukuran canvas ----------
+function fit() {
+  const st = $('stage'), side = Math.max(280, Math.min(st.clientWidth, st.clientHeight || st.clientWidth));
+  const d = window.devicePixelRatio || 1;
+  cv.style.width = cv.style.height = side + 'px';
+  cv.width = cv.height = Math.round(side * d);
 }
-function onPacket(p){
-  if(!p.pose)return;
-  $('mode').textContent=p.mode;$('busy').textContent=p.busy?'busy':'idle';
-  const t=trail[trail.length-1];
-  if(!t||Math.hypot(t[0]-p.pose[0],t[1]-p.pose[1])>0.4){trail.push([p.pose[0],p.pose[1]]);if(trail.length>600)trail.shift()}
-  hist.push({t:p.t,c:p.err.cross,h:p.err.head*180/Math.PI,r:p.err.rem});
-  while(hist.length&&p.t-hist[0].t>6)hist.shift();
-  const rows=[['x',p.pose[0].toFixed(2)+' in'],['y',p.pose[1].toFixed(2)+' in'],['heading',(p.pose[2]*180/Math.PI).toFixed(1)+' deg'],
-   ['speed',Math.hypot(p.vel[0],p.vel[1]).toFixed(1)+' in/s'],['segment / progress',p.idx+' / '+p.tval.toFixed(3)],
-   ['cross error',p.err.cross.toFixed(2)+' in'],['heading error',(p.err.head*180/Math.PI).toFixed(1)+' deg'],['remaining',p.err.rem.toFixed(2)+' in'],
-   ['motors',p.pw.map(x=>x.toFixed(2)).join('  ')]];
-  for(const k in p.tel)rows.push([k,p.tel[k]]);
-  $('tel').innerHTML=rows.map(r=>'<tr><td>'+r[0]+'</td><td>'+r[1]+'</td></tr>').join('');
+addEventListener('resize', fit); fit();
+
+// ---------- transform lapangan (origin kiri-bawah, +y ke atas) ----------
+let view = { cx: 0, cy: 0, span: FIELD };
+function sc() { return cv.width / view.span; }
+const X = x => (x - (view.cx - view.span / 2)) * sc();
+const Y = y => cv.height - (y - (view.cy - view.span / 2)) * sc();
+function toField(px, py) {
+  const r = cv.getBoundingClientRect(), k = cv.width / r.width;
+  const s = sc();
+  return [ (px - r.left) * k / s + (view.cx - view.span / 2),
+           (cv.height - (py - r.top) * k) / s + (view.cy - view.span / 2) ];
 }
 
-// ================= canvas helpers =================
-function fit(c){const r=c.getBoundingClientRect(),d=devicePixelRatio||1;
-  if(c.width!==Math.round(r.width*d)||c.height!==Math.round(r.height*d)){c.width=Math.round(r.width*d);c.height=Math.round(r.height*d)}
-  const g=c.getContext('2d');g.setTransform(d,0,0,d,0,0);return[g,r.width,r.height]}
-const bez=(pts,t)=>{let a=pts.map(p=>[p[0],p[1]]);for(let k=1;k<a.length;k++)for(let i=0;i<a.length-k;i++)a[i]=[a[i][0]*(1-t)+a[i+1][0]*t,a[i][1]*(1-t)+a[i+1][1]*t];return a[0]};
-function robot(g,X,Y,W,x,y,h,col,alpha,size){
-  const s=size/F*W;g.save();g.translate(X(x),Y(y));g.rotate(-h);
-  g.fillStyle=col;g.globalAlpha=alpha*.3;g.fillRect(-s/2,-s/2,s,s);g.globalAlpha=alpha;g.strokeStyle=col;g.lineWidth=2;g.strokeRect(-s/2,-s/2,s,s);
-  g.beginPath();g.moveTo(0,0);g.lineTo(s/2+6,0);g.stroke();g.restore();g.globalAlpha=1}
-
-// ================= planner model =================
-// wps[0] = start. wps[i>=1]: segment from wps[i-1] to wps[i]: kind line|curve, c = control points, hm = heading mode
-let wps=[{x:24,y:72,h:0}], sel=0, drag=null;
-const seg=i=>[wps[i-1],...(wps[i].kind==='curve'?wps[i].c.map(c=>({x:c[0],y:c[1]})):[]),wps[i]].map(p=>[p.x,p.y]);
-function addWp(x,y){const p=wps[wps.length-1];wps.push({x,y,h:p.h,kind:'line',c:[],hm:'linear',mp:''});sel=wps.length-1;renderPlan()}
-
-function drawField(){
-  const [g,W,H]=fit($('field')),X=x=>x/F*W,Y=y=>H-y/F*H;
-  g.clearRect(0,0,W,H);
-  g.strokeStyle=css('--grid');g.lineWidth=1;g.fillStyle=css('--muted');g.font='10px system-ui';
-  for(let i=0;i<=6;i++){const v=i*24;g.beginPath();g.moveTo(X(v),0);g.lineTo(X(v),H);g.moveTo(0,Y(v));g.lineTo(W,Y(v));g.stroke();
-    if(i<6){g.fillText(v,X(v)+2,H-3);g.fillText(v,2,Y(v)-2)}}
-  // planned route
-  for(let i=1;i<wps.length;i++){const pts=seg(i);g.beginPath();
-    for(let j=0;j<=40;j++){const q=bez(pts,j/40);j?g.lineTo(X(q[0]),Y(q[1])):g.moveTo(X(q[0]),Y(q[1]))}
-    g.strokeStyle=css('--c1');g.lineWidth=tab==='plan'&&i===sel?4:2.5;g.globalAlpha=tab==='plan'?1:.35;g.stroke();g.globalAlpha=1;
-    if(tab==='plan'&&wps[i].kind==='curve'){g.setLineDash([3,3]);g.strokeStyle=css('--muted');g.beginPath();pts.forEach((q,k)=>k?g.lineTo(X(q[0]),Y(q[1])):g.moveTo(X(q[0]),Y(q[1])));g.stroke();g.setLineDash([]);
-      wps[i].c.forEach(c=>{g.strokeStyle=css('--c2');g.lineWidth=2;g.beginPath();const cx=X(c[0]),cy=Y(c[1]);g.moveTo(cx,cy-7);g.lineTo(cx+7,cy);g.lineTo(cx,cy+7);g.lineTo(cx-7,cy);g.closePath();g.stroke()})}}
-  if(tab==='plan'){wps.forEach((w,i)=>{robot(g,X,Y,W,w.x,w.y,w.h*Math.PI/180,i===sel?css('--accent'):css('--muted'),i===sel?1:.7,+$('rsize').value||18);
-    g.fillStyle=css('--text');g.font='bold 11px system-ui';g.fillText(i,X(w.x)-3,Y(w.y)+4)})}
-  // live overlay
-  if(last&&last.path&&tab==='live'){
-    last.path.forEach((pts,i)=>{g.beginPath();pts.forEach((q,j)=>j?g.lineTo(X(q[0]),Y(q[1])):g.moveTo(X(q[0]),Y(q[1])));
-      g.strokeStyle=i===last.idx?css('--accent'):css('--muted');g.lineWidth=i===last.idx?3:2;g.globalAlpha=i===last.idx?1:.55;g.stroke();g.globalAlpha=1})}
-  if(tab==='live'){
-    g.strokeStyle=css('--c2');g.lineWidth=1.5;g.beginPath();trail.forEach((q,i)=>i?g.lineTo(X(q[0]),Y(q[1])):g.moveTo(X(q[0]),Y(q[1])));g.stroke();
-    if(last&&last.pose){g.fillStyle=css('--c3');g.beginPath();g.arc(X(last.closest[0]),Y(last.closest[1]),4,0,7);g.fill();
-      robot(g,X,Y,W,last.pose[0],last.pose[1],last.pose[2],css('--accent'),1,+$('rsize').value||18);
-      const s=(+$('rsize').value||18)/F*W;g.save();g.translate(X(last.pose[0]),Y(last.pose[1]));g.rotate(-last.th);g.strokeStyle=css('--c3');g.setLineDash([4,3]);
-      g.beginPath();g.moveTo(0,0);g.lineTo(s/2+16,0);g.stroke();g.restore()}}
+// ---------- gambar ----------
+function drawField() {
+  const H = FIELD / 2, d = window.devicePixelRatio || 1;
+  g.clearRect(0, 0, cv.width, cv.height);
+  g.lineWidth = 1;
+  for (let i = -H; i <= H; i += 24) {                   // tile 24 in, dari -72 sampai 72
+    g.strokeStyle = i === 0 ? '#34405a' : '#1c2333';
+    g.beginPath(); g.moveTo(X(i), Y(-H)); g.lineTo(X(i), Y(H)); g.stroke();
+    g.beginPath(); g.moveTo(X(-H), Y(i)); g.lineTo(X(H), Y(i)); g.stroke();
+  }
+  g.strokeStyle = '#4a5878'; g.lineWidth = 2;
+  g.strokeRect(X(-H), Y(H), FIELD * sc(), FIELD * sc());
+  g.fillStyle = '#5b6882'; g.font = (11 * d) + 'px system-ui';
+  for (let i = -H; i <= H; i += 24) {
+    if (i > -H) g.fillText(i, X(i) + 3, Y(-H) - 4);
+    if (i < H) g.fillText(i, X(-H) + 3, Y(i) - 3);
+  }
 }
-function spark(g,W,y0,h,key,col,label,unit){
-  const d=hist;if(d.length<2)return;const vs=d.map(o=>o[key]);const m=Math.max(1e-3,...vs.map(Math.abs));
-  const t0=d[0].t,t1=d[d.length-1].t||1;
-  g.strokeStyle=css('--grid');g.beginPath();g.moveTo(0,y0+h/2);g.lineTo(W,y0+h/2);g.stroke();
-  g.strokeStyle=col;g.lineWidth=1.6;g.beginPath();
-  d.forEach((o,i)=>{const x=(o.t-t0)/Math.max(1e-3,t1-t0)*W,y=y0+h/2-o[key]/m*(h/2-4);i?g.lineTo(x,y):g.moveTo(x,y)});g.stroke();
-  g.fillStyle=col;g.font='11px system-ui';g.fillText(label+' '+vs[vs.length-1].toFixed(2)+unit+'  (±'+m.toFixed(1)+')',6,y0+12)}
-function drawChart(){if(tab!=='live')return;const [g,W,H]=fit($('chart'));g.clearRect(0,0,W,H);const h=H/3;
-  spark(g,W,0,h,'c',css('--c1'),'cross error',' in');spark(g,W,h,h,'h',css('--c2'),'heading error',' deg');spark(g,W,2*h,h,'r',css('--c3'),'remaining',' in')}
-(function loop(){drawField();drawChart();requestAnimationFrame(loop)})();
 
-// ================= planner interaction =================
-const cv=$('field');
-const toField=e=>{const r=cv.getBoundingClientRect();return[(e.clientX-r.left)/r.width*F,(1-(e.clientY-r.top)/r.height)*F]};
-const r1=v=>Math.round(v*2)/2;
-cv.addEventListener('pointerdown',e=>{
-  if(tab!=='plan')return;const [x,y]=toField(e),tol=9/cv.getBoundingClientRect().width*F;
-  for(let i=wps.length-1;i>=0;i--)if(wps[i].kind==='curve')for(let k=0;k<wps[i].c.length;k++)
-    if(Math.hypot(wps[i].c[k][0]-x,wps[i].c[k][1]-y)<tol){drag={i,k};sel=i;cv.setPointerCapture(e.pointerId);renderPlan();return}
-  for(let i=wps.length-1;i>=0;i--)if(Math.hypot(wps[i].x-x,wps[i].y-y)<tol*1.3){drag={i};sel=i;cv.setPointerCapture(e.pointerId);renderPlan();return}
-  if(x>=0&&x<=F&&y>=0&&y<=F)addWp(r1(x),r1(y));
+function drawPath() {
+  if (!$('oPath').checked) return;
+  pathCache.forEach((seg, si) => {
+    g.strokeStyle = (S && si === S.idx) ? '#4da3ff' : '#2f4a73';
+    g.lineWidth = (S && si === S.idx) ? 3 : 2;
+    g.beginPath();
+    seg.forEach((p, i) => i ? g.lineTo(X(p[0]), Y(p[1])) : g.moveTo(X(p[0]), Y(p[1])));
+    g.stroke();
+  });
+  if (pathCache.length) {                               // titik ujung segmen
+    g.fillStyle = '#4da3ff';
+    pathCache.forEach(seg => { const e = seg[seg.length - 1]; g.beginPath(); g.arc(X(e[0]), Y(e[1]), 4, 0, 7); g.fill(); });
+  }
+}
+
+function drawTrail() {
+  if (!$('oTrail').checked || trail.length < 2) return;
+  g.lineWidth = 2;
+  for (let i = 1; i < trail.length; i++) {
+    g.strokeStyle = 'rgba(61,220,132,' + (0.15 + 0.85 * i / trail.length) + ')';
+    g.beginPath(); g.moveTo(X(trail[i - 1][0]), Y(trail[i - 1][1])); g.lineTo(X(trail[i][0]), Y(trail[i][1])); g.stroke();
+  }
+}
+
+function drawRobot() {
+  if (!S) return;
+  const [x, y, h] = S.pose, size = (+$('rsize').value || 18) * sc();
+  g.save();
+  g.translate(X(x), Y(y)); g.rotate(-h);                // canvas y terbalik -> putar -h
+  g.fillStyle = 'rgba(77,163,255,.25)'; g.strokeStyle = '#4da3ff'; g.lineWidth = 2;
+  g.fillRect(-size / 2, -size / 2, size, size); g.strokeRect(-size / 2, -size / 2, size, size);
+  g.strokeStyle = '#ffb74d'; g.lineWidth = 3;           // panah depan robot
+  g.beginPath(); g.moveTo(0, 0); g.lineTo(size / 2 + 6, 0); g.stroke();
+  g.fillStyle = '#ffb74d'; g.beginPath();
+  g.moveTo(size / 2 + 12, 0); g.lineTo(size / 2 + 2, -5); g.lineTo(size / 2 + 2, 5); g.fill();
+  g.restore();
+
+  if (S.busy) {                                          // titik terdekat di path + target heading
+    g.fillStyle = '#ff5c5c'; g.beginPath(); g.arc(X(S.closest[0]), Y(S.closest[1]), 5, 0, 7); g.fill();
+    g.strokeStyle = '#ff5c5c'; g.setLineDash([5, 4]); g.lineWidth = 1.5;
+    g.beginPath(); g.moveTo(X(x), Y(y)); g.lineTo(X(S.closest[0]), Y(S.closest[1])); g.stroke();
+    g.setLineDash([]);
+    g.strokeStyle = '#d17bff'; g.lineWidth = 2;
+    const L = size * 0.9;
+    g.beginPath(); g.moveTo(X(x), Y(y));
+    g.lineTo(X(x) + Math.cos(S.th) * L, Y(y) - Math.sin(S.th) * L); g.stroke();
+  }
+  if ($('oVel').checked) {                               // vektor kecepatan (1 s ke depan)
+    g.strokeStyle = '#3ddc84'; g.lineWidth = 2;
+    g.beginPath(); g.moveTo(X(x), Y(y)); g.lineTo(X(x + S.vel[0]), Y(y + S.vel[1])); g.stroke();
+  }
+}
+
+function frame() {
+  if (S && $('oFollow').checked) { view.span = 72; view.cx = S.pose[0]; view.cy = S.pose[1]; }
+  else { view.span = FIELD; view.cx = view.cy = 0; }
+  drawField(); drawPath(); drawTrail(); drawRobot();
+  drawPlot();
+  requestAnimationFrame(frame);
+}
+requestAnimationFrame(frame);
+
+cv.addEventListener('mousemove', e => {
+  const [fx, fy] = toField(e.clientX, e.clientY);
+  $('mouse').textContent = 'kursor: ' + fx.toFixed(1) + ', ' + fy.toFixed(1);
 });
-cv.addEventListener('pointermove',e=>{if(!drag)return;const [x,y]=toField(e);
-  if(drag.k!==undefined)wps[drag.i].c[drag.k]=[r1(x),r1(y)];else{wps[drag.i].x=r1(x);wps[drag.i].y=r1(y)}renderPlan(true)});
-cv.addEventListener('pointerup',()=>{drag=null;renderPlan()});
+cv.addEventListener('mouseleave', () => $('mouse').textContent = '');
+$('clr').onclick = () => { trail = []; };
 
-function renderPlan(light){
-  $('code').value=genCode();
-  if(light)return;
-  $('wps').innerHTML='';
-  wps.forEach((w,i)=>{
-    const d=document.createElement('div');d.className='wp'+(i===sel?' sel':'');d.onclick=()=>{sel=i;renderPlan()};
-    let h='<b>'+(i===0?'Start':'Waypoint '+i)+'</b>';
-    h+='<div class="g"><div><label>x (in)</label><input type="number" step="0.5" data-f="x" value="'+w.x+'"></div><div><label>y (in)</label><input type="number" step="0.5" data-f="y" value="'+w.y+'"></div><div><label>heading (deg)</label><input type="number" step="1" data-f="h" value="'+w.h+'"></div>';
-    if(i>0)h+='<div><label>segment</label><select data-f="kind"><option'+(w.kind==='line'?' selected':'')+'>line</option><option'+(w.kind==='curve'?' selected':'')+'>curve</option></select></div>'+
-      '<div><label>heading mode</label><select data-f="hm">'+['linear','tangent','backwards','hold'].map(m=>'<option'+(w.hm===m?' selected':'')+'>'+m+'</option>').join('')+'</select></div>'+
-      '<div><label>max power</label><input type="number" step="0.05" min="0" max="1" data-f="mp" value="'+w.mp+'" placeholder="-"></div>';
-    d.innerHTML=h+'</div>';
-    d.querySelectorAll('[data-f]').forEach(el=>el.onchange=()=>{const f=el.dataset.f;
-      if(['x','y','h'].includes(f))w[f]=+el.value;else if(f==='mp')w.mp=el.value;else{w[f]=el.value;if(f==='kind'&&el.value==='curve'&&!w.c.length)addCtl(i)}renderPlan()});
-    $('wps').appendChild(d)});
+// ---------- plot error ----------
+function drawPlot() {
+  const c = $('plot'), d = window.devicePixelRatio || 1;
+  const w = c.clientWidth * d, h = c.clientHeight * d;
+  if (c.width !== w) { c.width = w; c.height = h; }
+  const q = c.getContext('2d'); q.clearRect(0, 0, w, h);
+  q.strokeStyle = '#2a3242'; q.beginPath(); q.moveTo(0, h / 2); q.lineTo(w, h / 2); q.stroke();
+  if (errHist.length < 2) return;
+  const now = errHist[errHist.length - 1].t;
+  const maxv = Math.max(2, ...errHist.map(e => Math.abs(e.v)));
+  q.strokeStyle = '#ffb74d'; q.lineWidth = 1.5 * d; q.beginPath();
+  errHist.forEach((e, i) => {
+    const px = w - (now - e.t) / 10 * w, py = h / 2 - e.v / maxv * (h / 2 - 3);
+    i ? q.lineTo(px, py) : q.moveTo(px, py);
+  });
+  q.stroke();
 }
-function addCtl(i){const a=wps[i-1],b=wps[i];const n=b.c.length;wps[i].kind='curve';
-  wps[i].c.push([r1(a.x+(b.x-a.x)*(.5)-(b.y-a.y)*.25*(n%2?-1:1)),r1(a.y+(b.y-a.y)*.5+(b.x-a.x)*.25*(n%2?-1:1))])}
-$('addCtl').onclick=()=>{if(sel>0){addCtl(sel);renderPlan()}};
-$('delWp').onclick=()=>{if(sel>0){wps.splice(sel,1);sel=Math.min(sel,wps.length-1);renderPlan()}};
-$('resetPlan').onclick=()=>{if(confirm('Clear the whole route?')){wps=[{x:24,y:72,h:0}];sel=0;renderPlan()}};
-const f1=v=>{v=+v;return Number.isInteger(v)?String(v):String(+v.toFixed(2))};
-function genCode(){
-  let s='Route route = Route.from(Pose.of('+f1(wps[0].x)+', '+f1(wps[0].y)+', '+f1(wps[0].h)+'))\n';
-  for(let i=1;i<wps.length;i++){const w=wps[i],end='Pose.of('+f1(w.x)+', '+f1(w.y)+', '+f1(w.h)+')';
-    s+=w.kind==='curve'?'    .curveTo('+end+w.c.map(c=>', Vec.of('+f1(c[0])+', '+f1(c[1])+')').join('')+')\n':'    .lineTo('+end+')\n';
-    if(w.hm==='tangent')s+='        .faceTangent()\n';else if(w.hm==='backwards')s+='        .faceBackwards()\n';else if(w.hm==='hold')s+='        .holdHeading('+f1(wps[i-1].h)+')\n';
-    if(w.mp!==''&&+w.mp>0)s+='        .maxPower('+f1(w.mp)+')\n'}
-  return s+'    .build();\nflow.run(route);'}
-$('copyCode').onclick=()=>{const t=$('code');t.select();try{document.execCommand('copy')}catch(e){}};
 
-// ================= tabs =================
-function setTab(t){tab=t;$('tLive').classList.toggle('on',t==='live');$('tPlan').classList.toggle('on',t==='plan');
-  $('liveSide').classList.toggle('hide',t!=='live');$('planSide').classList.toggle('hide',t!=='plan');
-  $('chartCard').classList.toggle('hide',t!=='live');$('planHint').classList.toggle('hide',t!=='plan');renderPlan()}
-$('tLive').onclick=()=>setTab('live');$('tPlan').onclick=()=>setTab('plan');
-$('clrTrail').onclick=()=>{trail.length=0};
+// ---------- terima data ----------
+const f1 = (v, n = 1) => (+v).toFixed(n);
+function onPacket(p) {
+  S = p;
+  const now = performance.now();
+  if (lastRecv) rate = rate * 0.9 + (1000 / (now - lastRecv)) * 0.1;
+  lastRecv = now;
+  $('hz').textContent = rate.toFixed(0) + ' Hz';
 
-// ================= tuning params =================
-let params=[];
-async function loadParams(){
-  try{const j=await (await fetch('/api/params')).json();params=j.params;$('savedBadge').style.display=j.saved?'':'none';
-    const groups={};params.forEach(p=>{const[g,n]=p.k.split('.');(groups[g]=groups[g]||[]).push({...p,n})});
-    const root=$('params');root.innerHTML='';
-    for(const g in groups){const h=document.createElement('div');h.className='grp';h.textContent=g;root.appendChild(h);groups[g].forEach(p=>root.appendChild(row(p)))}}catch(e){}
+  const [x, y, h] = p.pose;
+  const last = trail[trail.length - 1];
+  if (!last || Math.hypot(last[0] - x, last[1] - y) > 0.25) trail.push([x, y]);
+  if (trail.length > 1500) trail.shift();
+
+  if (p.path) pathCache = p.path;
+
+  $('mode').textContent = p.mode; $('busy').textContent = p.busy ? 'following' : 'idle';
+  $('px').textContent = f1(x, 2); $('py').textContent = f1(y, 2); $('ph').textContent = f1(h * 180 / Math.PI);
+  $('vs').textContent = f1(Math.hypot(p.vel[0], p.vel[1])) + ' in/s';
+  $('vw').textContent = f1(p.vel[2], 2) + ' rad/s';
+  $('seg').textContent = p.idx + ' / ' + pathCache.length;
+  $('tv').textContent = f1(p.tval, 3);
+  $('th').textContent = f1(p.th * 180 / Math.PI) + '°';
+  $('ec').textContent = f1(p.err.cross, 2) + ' in';
+  $('eh').textContent = f1(p.err.head * 180 / Math.PI) + '°';
+  $('er').textContent = f1(p.err.rem, 1) + ' in';
+
+  const pw = $('pw');
+  if (pw.children.length !== p.pw.length) {
+    pw.innerHTML = p.pw.map(() => '<div><i></i></div>').join('');
+  }
+  p.pw.forEach((v, i) => {
+    const el = pw.children[i].firstChild, hgt = Math.abs(v) * 50;
+    el.style.height = hgt + '%'; el.style.top = v >= 0 ? (50 - hgt / 2 * 1) + '%' : '50%';
+    el.style.background = v >= 0 ? 'var(--accent)' : 'var(--warn)';
+  });
+
+  errHist.push({ t: p.t, v: p.err.cross });
+  while (errHist.length && p.t - errHist[0].t > 10) errHist.shift();
+
+  $('tel').innerHTML = Object.entries(p.tel || {}).map(([k, v]) => `<tr><td>${k}</td><td>${v}</td></tr>`).join('') ||
+    '<tr><td colspan=2 style="color:var(--dim)">kosong (pakai Dash.put)</td></tr>';
 }
-function row(p){
-  const d=document.createElement('div');d.className='row';
-  const l=document.createElement('label');l.textContent=p.n;l.title=p.k;d.appendChild(l);
-  let num;const mark=()=>d.classList.toggle('chg',String(num.type==='checkbox'?num.checked:+num.value)!==String(p.d));
-  if(p.t==='bool'){num=document.createElement('input');num.type='checkbox';num.checked=p.v;num.onchange=()=>{send(p.k,num.checked);mark()};d.appendChild(num)}
-  else{num=document.createElement('input');num.type='number';num.value=p.v;num.step=p.t==='int'?1:Math.max(1e-6,Math.abs(p.v||p.d||1)/50);
-    const r=document.createElement('input');r.type='range';const base=Math.max(Math.abs(p.v),Math.abs(p.d),p.t==='int'?10:0.1);
-    r.min=(p.v<0||p.d<0)?-base*2:0;r.max=base*2.5;r.step=p.t==='int'?1:base/500;r.value=p.v;
-    let tm;const push=v=>{clearTimeout(tm);tm=setTimeout(()=>send(p.k,v),60)};
-    r.oninput=()=>{num.value=r.value;push(r.value);mark()};num.oninput=()=>{if(num.value!==''){r.value=num.value;push(num.value);mark()}};
-    d.appendChild(num);d.appendChild(r)}
-  mark();return d}
-const send=(k,v)=>fetch('/api/set?name='+encodeURIComponent(k)+'&value='+encodeURIComponent(v),{method:'POST'});
-$('save').onclick=async()=>{const r=await (await fetch('/api/save',{method:'POST'})).json();alert(r.ok?'Saved on the robot. It loads automatically next time.':'Save failed');loadParams()};
-$('clear').onclick=async()=>{if(!confirm('Delete saved values and restore the defaults from your code?'))return;await fetch('/api/clear',{method:'POST'});loadParams()};
-$('copy').onclick=async()=>{const j=await (await fetch('/api/params')).json();
-  const lines=j.params.map(p=>'Tune.'+p.k+' = '+(p.t==='double'&&!String(p.v).includes('.')&&!String(p.v).includes('e')?p.v+'.0':p.v)+';');
-  const ta=$('java');ta.classList.remove('hide');ta.value=lines.join('\n');ta.select();try{document.execCommand('copy')}catch(e){}};
 
-renderPlan();connect();
+// ---------- koneksi SSE (otomatis sambung ulang) ----------
+function connect() {
+  const es = new EventSource('/stream');
+  es.onopen = () => $('conn').classList.add('on');
+  es.onmessage = e => { try { onPacket(JSON.parse(e.data)); } catch (_) {} };
+  es.onerror = () => { $('conn').classList.remove('on'); es.close(); setTimeout(connect, 1000); };
+}
+connect();
+
+// ---------- tuning ----------
+const open = new Set(['Translation', 'Heading']);
+let sendTimer = {};
+function send(name, value) {
+  clearTimeout(sendTimer[name]);
+  sendTimer[name] = setTimeout(() =>
+    fetch('/api/set?name=' + encodeURIComponent(name) + '&value=' + encodeURIComponent(value)).catch(() => {}), 60);
+}
+function note(t) { $('msg').textContent = t; setTimeout(() => $('msg').textContent = '', 2500); }
+
+async function loadParams() {
+  let data;
+  try { data = await (await fetch('/api/params')).json(); } catch (e) { $('params').textContent = 'gagal memuat'; return; }
+  const groups = {};
+  data.params.forEach(p => { const [gname, f] = p.k.split('.'); (groups[gname] = groups[gname] || []).push({ ...p, f }); });
+  const root = $('params'); root.innerHTML = '';
+  Object.entries(groups).forEach(([gname, list]) => {
+    const d = document.createElement('details'); if (open.has(gname)) d.open = true;
+    d.ontoggle = () => d.open ? open.add(gname) : open.delete(gname);
+    d.innerHTML = '<summary>' + gname + '</summary>';
+    list.forEach(p => {
+      const row = document.createElement('div'); row.className = 'p';
+      const changed = () => Math.abs(p.v - p.d) > 1e-9 || p.v !== p.d;
+      if (p.t === 'bool') {
+        row.innerHTML = `<div class="n"><span>${p.f}</span></div><label><input type="checkbox" ${p.v ? 'checked' : ''}> aktif</label>`;
+        row.querySelector('input').onchange = e => send(p.k, e.target.checked);
+      } else {
+        const hi = Math.max(1, Math.abs(p.d) * 3, Math.abs(p.v) * 1.5);
+        const step = p.t === 'int' ? 1 : hi / 500;
+        row.innerHTML = `<div class="n"><span class="${changed() ? 'mod' : ''}">${p.f}</span><span>default ${p.d}</span></div>
+          <input type="range" min="${p.d < 0 ? -hi : 0}" max="${hi}" step="${step}" value="${p.v}">
+          <input type="number" step="any" value="${p.v}">`;
+        const r = row.querySelector('[type=range]'), n = row.querySelector('[type=number]');
+        r.oninput = () => { n.value = r.value; send(p.k, r.value); row.querySelector('span').className = 'mod'; };
+        n.onchange = () => { r.value = n.value; send(p.k, n.value); row.querySelector('span').className = 'mod'; };
+      }
+      d.appendChild(row);
+    });
+    root.appendChild(d);
+  });
+}
+$('save').onclick = async () => { const r = await (await fetch('/api/save')).json(); note(r.ok ? 'tersimpan' : 'gagal simpan'); };
+$('clear').onclick = async () => { const r = await (await fetch('/api/clear')).json(); note(r.ok ? 'direset ke default' : 'gagal'); loadParams(); };
+loadParams();
 </script>
 </body>
 </html>
