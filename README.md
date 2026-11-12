@@ -91,7 +91,7 @@ dependencies {
 Lalu salin `quickstart/TeamCode/.../flowpath/*.java` ke TeamCode kamu dan edit `Robot.java` (nama motor, ticksPerInch, trackWidth, strafeOffset).
 
 ## Tuning (3 langkah, semua dari dashboard)
-Dashboard: HP/laptop konek ke WiFi Control Hub -> `http://192.168.43.1:8099`.
+Dashboard: HP/laptop konek ke WiFi Control Hub -> `http://192.168.43.1:8080`.
 1. **FlowAutoTune** - robot jalan maju & strafe full power, ukur `Drive.maxSpeed`, `General.strafeGain`, `Drive.decel`, langsung disimpan.
 2. **FlowTuner** - A hold, B line, X curve, Y turn; geser slider sambil lihat grafik error:
    - **Translation.kP/kD** (A): dorong robot, harus balik cepat tanpa goyang. kS membantu ujung gerak yang "macet".

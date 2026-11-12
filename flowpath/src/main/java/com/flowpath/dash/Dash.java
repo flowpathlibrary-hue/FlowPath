@@ -31,7 +31,7 @@ import java.util.concurrent.Executors;
  * Flow.mecanum(...).build() starts it for you.
  */
 public final class Dash {
-    public static final int PORT = 8001;
+    public static final int PORT = 8080;
 
     private static ServerSocket server;
     private static ExecutorService pool;
