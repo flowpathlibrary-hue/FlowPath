@@ -69,7 +69,7 @@ public final class Params {
                 if (!n.startsWith(prefix)) continue;
                 try {
                     Class<?> c = Class.forName(n, false, Params.class.getClassLoader()); // false = tanpa static init
-                    if (c.isAnnotationPresent(Tunable.class)) scan(c, saved);
+                    if (c.isAnnotationPresent(flowTune.class)) scan(c, saved);
                 } catch (Throwable ignored) {}
             }
         } catch (Throwable ignored) {}
