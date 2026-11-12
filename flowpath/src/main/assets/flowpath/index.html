@@ -114,16 +114,19 @@ function fit() {
 }
 addEventListener('resize', fit); fit();
 
-// ---------- transform lapangan (origin kiri-bawah, +y ke atas) ----------
+// ---------- transform lapangan ----------
+// Layar horizontal = y  (kiri -72, kanan +72)
+// Layar vertikal   = x  (bawah -72, atas +72)
+// Origin (0,0) di tengah. view.cx = pusat x (vertikal), view.cy = pusat y (horizontal).
 let view = { cx: 0, cy: 0, span: FIELD };
 function sc() { return cv.width / view.span; }
-const X = x => (x - (view.cx - view.span / 2)) * sc();
-const Y = y => cv.height - (y - (view.cy - view.span / 2)) * sc();
+const SX = (x, y) => (y - (view.cy - view.span / 2)) * sc();
+const SY = (x, y) => cv.height - (x - (view.cx - view.span / 2)) * sc();
 function toField(px, py) {
-  const r = cv.getBoundingClientRect(), k = cv.width / r.width;
-  const s = sc();
-  return [ (px - r.left) * k / s + (view.cx - view.span / 2),
-           (cv.height - (py - r.top) * k) / s + (view.cy - view.span / 2) ];
+  const r = cv.getBoundingClientRect(), k = cv.width / r.width, s = sc();
+  const sxp = (px - r.left) * k, syp = (py - r.top) * k;
+  return [ (cv.height - syp) / s + (view.cx - view.span / 2),   // x
+           sxp / s + (view.cy - view.span / 2) ];               // y
 }
 
 // ---------- gambar ----------
@@ -133,16 +136,19 @@ function drawField() {
   g.lineWidth = 1;
   for (let i = -H; i <= H; i += 24) {                   // tile 24 in, dari -72 sampai 72
     g.strokeStyle = i === 0 ? '#34405a' : '#1c2333';
-    g.beginPath(); g.moveTo(X(i), Y(-H)); g.lineTo(X(i), Y(H)); g.stroke();
-    g.beginPath(); g.moveTo(X(-H), Y(i)); g.lineTo(X(H), Y(i)); g.stroke();
+    g.beginPath(); g.moveTo(SX(i, -H), SY(i, -H)); g.lineTo(SX(i, H), SY(i, H)); g.stroke();   // garis x = i
+    g.beginPath(); g.moveTo(SX(-H, i), SY(-H, i)); g.lineTo(SX(H, i), SY(H, i)); g.stroke();   // garis y = i
   }
   g.strokeStyle = '#4a5878'; g.lineWidth = 2;
-  g.strokeRect(X(-H), Y(H), FIELD * sc(), FIELD * sc());
+  g.strokeRect(SX(0, -H), SY(H, 0), FIELD * sc(), FIELD * sc());
   g.fillStyle = '#5b6882'; g.font = (11 * d) + 'px system-ui';
   for (let i = -H; i <= H; i += 24) {
-    if (i > -H) g.fillText(i, X(i) + 3, Y(-H) - 4);
-    if (i < H) g.fillText(i, X(-H) + 3, Y(i) - 3);
+    if (i > -H) g.fillText('y ' + i, SX(-H, i) + 3, SY(-H, i) - 4);     // label y di tepi bawah
+    if (i < H) g.fillText('x ' + i, SX(i, -H) + 3, SY(i, -H) - 3);      // label x di tepi kiri
   }
+  g.fillStyle = '#8b93a5'; g.font = (13 * d) + 'px system-ui';
+  g.fillText('+x ↑', SX(H, 0) + 8, SY(H, 0) + 18 * d);
+  g.fillText('+y →', SX(0, H) - 46 * d, SY(0, H) - 8 * d);
 }
 
 function drawPath() {
@@ -151,12 +157,12 @@ function drawPath() {
     g.strokeStyle = (S && si === S.idx) ? '#4da3ff' : '#2f4a73';
     g.lineWidth = (S && si === S.idx) ? 3 : 2;
     g.beginPath();
-    seg.forEach((p, i) => i ? g.lineTo(X(p[0]), Y(p[1])) : g.moveTo(X(p[0]), Y(p[1])));
+    seg.forEach((p, i) => i ? g.lineTo(SX(p[0], p[1]), SY(p[0], p[1])) : g.moveTo(SX(p[0], p[1]), SY(p[0], p[1])));
     g.stroke();
   });
   if (pathCache.length) {                               // titik ujung segmen
     g.fillStyle = '#4da3ff';
-    pathCache.forEach(seg => { const e = seg[seg.length - 1]; g.beginPath(); g.arc(X(e[0]), Y(e[1]), 4, 0, 7); g.fill(); });
+    pathCache.forEach(seg => { const e = seg[seg.length - 1]; g.beginPath(); g.arc(SX(e[0], e[1]), SY(e[0], e[1]), 4, 0, 7); g.fill(); });
   }
 }
 
@@ -164,16 +170,19 @@ function drawTrail() {
   if (!$('oTrail').checked || trail.length < 2) return;
   g.lineWidth = 2;
   for (let i = 1; i < trail.length; i++) {
+    const a = trail[i - 1], b = trail[i];
     g.strokeStyle = 'rgba(61,220,132,' + (0.15 + 0.85 * i / trail.length) + ')';
-    g.beginPath(); g.moveTo(X(trail[i - 1][0]), Y(trail[i - 1][1])); g.lineTo(X(trail[i][0]), Y(trail[i][1])); g.stroke();
+    g.beginPath(); g.moveTo(SX(a[0], a[1]), SY(a[0], a[1])); g.lineTo(SX(b[0], b[1]), SY(b[0], b[1])); g.stroke();
   }
 }
 
 function drawRobot() {
   if (!S) return;
   const [x, y, h] = S.pose, size = (+$('rsize').value || 18) * sc();
+  const rx = SX(x, y), ry = SY(x, y);
   g.save();
-  g.translate(X(x), Y(y)); g.rotate(-h);                // canvas y terbalik -> putar -h
+  g.translate(rx, ry);
+  g.rotate(h - Math.PI / 2);                            // heading 0 = menghadap +x = ke ATAS layar
   g.fillStyle = 'rgba(77,163,255,.25)'; g.strokeStyle = '#4da3ff'; g.lineWidth = 2;
   g.fillRect(-size / 2, -size / 2, size, size); g.strokeRect(-size / 2, -size / 2, size, size);
   g.strokeStyle = '#ffb74d'; g.lineWidth = 3;           // panah depan robot
@@ -183,18 +192,20 @@ function drawRobot() {
   g.restore();
 
   if (S.busy) {                                          // titik terdekat di path + target heading
-    g.fillStyle = '#ff5c5c'; g.beginPath(); g.arc(X(S.closest[0]), Y(S.closest[1]), 5, 0, 7); g.fill();
+    const cx = SX(S.closest[0], S.closest[1]), cy = SY(S.closest[0], S.closest[1]);
+    g.fillStyle = '#ff5c5c'; g.beginPath(); g.arc(cx, cy, 5, 0, 7); g.fill();
     g.strokeStyle = '#ff5c5c'; g.setLineDash([5, 4]); g.lineWidth = 1.5;
-    g.beginPath(); g.moveTo(X(x), Y(y)); g.lineTo(X(S.closest[0]), Y(S.closest[1])); g.stroke();
+    g.beginPath(); g.moveTo(rx, ry); g.lineTo(cx, cy); g.stroke();
     g.setLineDash([]);
     g.strokeStyle = '#d17bff'; g.lineWidth = 2;
     const L = size * 0.9;
-    g.beginPath(); g.moveTo(X(x), Y(y));
-    g.lineTo(X(x) + Math.cos(S.th) * L, Y(y) - Math.sin(S.th) * L); g.stroke();
+    g.beginPath(); g.moveTo(rx, ry);
+    g.lineTo(rx + Math.sin(S.th) * L, ry - Math.cos(S.th) * L); g.stroke();
   }
   if ($('oVel').checked) {                               // vektor kecepatan (1 s ke depan)
     g.strokeStyle = '#3ddc84'; g.lineWidth = 2;
-    g.beginPath(); g.moveTo(X(x), Y(y)); g.lineTo(X(x + S.vel[0]), Y(y + S.vel[1])); g.stroke();
+    g.beginPath(); g.moveTo(rx, ry);
+    g.lineTo(SX(x + S.vel[0], y + S.vel[1]), SY(x + S.vel[0], y + S.vel[1])); g.stroke();
   }
 }
 
@@ -209,7 +220,7 @@ requestAnimationFrame(frame);
 
 cv.addEventListener('mousemove', e => {
   const [fx, fy] = toField(e.clientX, e.clientY);
-  $('mouse').textContent = 'kursor: ' + fx.toFixed(1) + ', ' + fy.toFixed(1);
+  $('mouse').textContent = 'kursor: x ' + fx.toFixed(1) + ', y ' + fy.toFixed(1);
 });
 cv.addEventListener('mouseleave', () => $('mouse').textContent = '');
 $('clr').onclick = () => { trail = []; };
