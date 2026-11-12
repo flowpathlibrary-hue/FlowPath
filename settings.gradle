@@ -1,0 +1,11 @@
+pluginManagement { repositories { google(); mavenCentral(); gradlePluginPortal() } }
+dependencyResolutionManagement {
+    repositories {
+        google()
+        mavenCentral()
+        maven { url 'https://mymaven.bylazar.com/releases' }  // Ivy (see pedropathing.com/docs/ivy if this changes)
+        maven { url 'https://jitpack.io' }
+    }
+}
+rootProject.name = 'FlowPath'
+include ':flowpath', ':flowpath-ivy'
